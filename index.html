@@ -308,20 +308,9 @@
         这张照片已经是抠好图的透明背景 PNG（跳过自动抠图，直接使用原图透明部分）
       </label>
 
-      <div style="margin-top:14px; padding:14px 16px; background:#F7F7F5; border:1px solid #E2E2DE; border-radius:10px;">
-        <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
-          <input type="checkbox" id="use-removebg" onchange="reprocessTolerance()" style="width:auto;">
-          使用 Remove.bg AI 智能抠图（效果比颜色识别更精准，需要你自己的 API Key）
-        </label>
-        <div class="records-hint" style="margin-top:8px;">
-          去 <b>remove.bg/api</b> 免费注册即可拿到 API Key（免费额度是"预览分辨率"，对卡片这种小尺寸完全够用；要高清才需要付费）。Key 只会保存在你这台设备的浏览器里，不会写进导出的图片或分享出去。
-        </div>
-        <input type="password" id="removebg-key" placeholder="粘贴你的 Remove.bg API Key" style="margin-top:8px; width:100%; border:1px solid #CFCFCC; border-radius:8px; padding:8px 12px; font-size:13px;" oninput="saveRemovebgKey(this.value)">
-      </div>
-
-      <label style="margin-top:14px;">抠图容差（仅在未使用 Remove.bg 时生效；背景越不干净，建议数值越低）</label>
+      <label style="margin-top:14px;">抠图容差（背景越不干净，建议数值越低）</label>
       <input type="range" id="cutout-tolerance" min="10" max="90" value="40" oninput="reprocessTolerance()">
-      <div class="records-hint">背景色识别抠图（默认）：不是真正的AI智能抠图，适合纯色/渐变影棚背景；复杂背景效果会不理想。如果已用其他工具处理好透明PNG，勾选上面"已经是抠好图"选项即可直接使用；想要更精准的效果，可以启用上方的 Remove.bg AI 抠图。</div>
+      <div class="records-hint">背景色识别抠图：适合纯色/渐变影棚背景；复杂背景效果会不理想。如果已用其他工具处理好透明PNG，勾选上面"已经是抠好图"选项即可直接使用。</div>
 
       <label style="margin-top:14px;">叠加层深度 Overlay Depth（数值越高，卡片越暗；数值越低，照片越清晰）</label>
       <div style="display:flex; align-items:center; gap:12px;">
@@ -521,25 +510,12 @@
     lastUploadedFile = null;
     document.getElementById('photo-upload').value = '';
     document.getElementById('skip-cutout').checked = false;
-    document.getElementById('use-removebg').checked = false;
     document.getElementById('front-bg-img').src = DEFAULT_BG;
     document.getElementById('back-bg-img').src = DEFAULT_BG;
   }
 
-  function saveRemovebgKey(val) {
-    try { localStorage.setItem('weide_removebg_key', val); } catch (e) {}
-  }
-
-  function loadRemovebgKey() {
-    try {
-      var k = localStorage.getItem('weide_removebg_key');
-      if (k) document.getElementById('removebg-key').value = k;
-    } catch (e) {}
-  }
-
   function processPhoto(file) {
     var skip = document.getElementById('skip-cutout').checked;
-    var useRemovebg = document.getElementById('use-removebg').checked;
     var reader = new FileReader();
 
     reader.onload = function(e) {
@@ -566,54 +542,6 @@
           document.getElementById('back-bg-img').src = out;
         };
         passImg.src = e.target.result;
-        return;
-      }
-
-      if (useRemovebg) {
-        var key = document.getElementById('removebg-key').value.trim();
-        if (!key) {
-          alert('请先在上方输入你的 Remove.bg API Key，才能使用 AI 抠图。');
-          return;
-        }
-        var formData = new FormData();
-        formData.append('image_file', file);
-        formData.append('size', 'preview'); // free-tier resolution; change to 'auto' if you have paid credits
-        fetch('https://api.remove.bg/v1.0/removebg', {
-          method: 'POST',
-          headers: { 'X-Api-Key': key },
-          body: formData
-        }).then(function(res) {
-          if (!res.ok) {
-            return res.text().then(function(t) {
-              throw new Error('Remove.bg 返回错误 (' + res.status + '): ' + t);
-            });
-          }
-          return res.blob();
-        }).then(function(blob) {
-          var url = URL.createObjectURL(blob);
-          var rbImg = new Image();
-          rbImg.onload = function() {
-            var c = document.createElement('canvas');
-            var TARGET_RATIO = 460 / 290;
-            var srcW = rbImg.width, srcH = rbImg.height;
-            var cropW, cropH, cropX, cropY;
-            if (srcW / srcH > TARGET_RATIO) {
-              cropH = srcH; cropW = Math.round(srcH * TARGET_RATIO);
-              cropX = Math.round((srcW - cropW) / 2); cropY = 0;
-            } else {
-              cropW = srcW; cropH = Math.round(srcW / TARGET_RATIO);
-              cropX = 0; cropY = Math.round((srcH - cropH) * 0.62);
-            }
-            c.width = cropW; c.height = cropH;
-            c.getContext('2d').drawImage(rbImg, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-            var out = c.toDataURL('image/png');
-            document.getElementById('front-bg-img').src = out;
-            document.getElementById('back-bg-img').src = out;
-          };
-          rbImg.src = url;
-        }).catch(function(err) {
-          alert('Remove.bg 抠图失败：' + err.message + '\n\n常见原因：API Key 错误、免费额度用完、或浏览器直接调用被拦截（如果反复失败，Remove.bg 可能需要透过后端服务器调用，静态网页直接调用有时会被其CORS策略拒绝）。');
-        });
         return;
       }
 
@@ -833,7 +761,6 @@
   recalc();
   renderRecords();
   updateOverlayDepth(78);
-  loadRemovebgKey();
   if (typeof html2canvas === 'undefined') {
     document.getElementById('load-warning').style.display = 'block';
   }

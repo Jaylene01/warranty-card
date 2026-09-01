@@ -378,7 +378,7 @@
 
   <div class="records-panel">
     <h2>历史记录 Records</h2>
-    <div class="records-hint">记录仅保存在当前浏览器本地（localStorage），不会同步到云端或其他设备/浏览器；清除浏览器数据会导致记录消失。点"编辑/重新导出"会把该条资料重新载入上方表单，你可以修改后再次导出图片或打印/存PDF。</div>
+    <div class="records-hint">记录已保存在云端数据库，所有设备/浏览器打开本网站都能看到同一份记录。点"编辑/重新导出"会把该条资料重新载入上方表单，你可以修改后再次导出图片或打印/存PDF。</div>
     <div id="records-table-wrap"></div>
     <div class="records-actions">
       <span></span>
@@ -607,23 +607,23 @@
     reader.readAsDataURL(file);
   }
 
-  /* ===== Records (localStorage) ===== */
-  var RECORDS_KEY = 'weide_warranty_records';
+  /* ===== Records (Postgres via API) ===== */
+  var recordsCache = [];
 
-  function loadRecords() {
+  async function fetchRecords() {
     try {
-      var raw = localStorage.getItem(RECORDS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) { return []; }
+      var res = await fetch('/api/records');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      recordsCache = await res.json();
+    } catch (e) {
+      console.error('加载记录失败', e);
+      recordsCache = [];
+    }
+    return recordsCache;
   }
 
-  function saveRecordsList(list) {
-    localStorage.setItem(RECORDS_KEY, JSON.stringify(list));
-  }
-
-  function saveRecord() {
+  async function saveRecord() {
     var record = {
-      ts: new Date().toLocaleString('zh-CN', { hour12:false }),
       customer: document.getElementById('in-customer').value || '-',
       vehicle: document.getElementById('in-vehicle').value || '-',
       mileage: document.getElementById('in-mileage').value || '-',
@@ -635,15 +635,22 @@
       status: document.getElementById('status-text').textContent,
       statusValue: document.querySelector('input[name="status"]:checked').value
     };
-    var list = loadRecords();
-    list.unshift(record);
-    saveRecordsList(list);
+    try {
+      var res = await fetch('/api/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+    } catch (e) {
+      alert('保存记录失败，请检查网络连接：' + e.message);
+      return;
+    }
     renderRecords();
   }
 
   function loadRecordIntoForm(idx) {
-    var list = loadRecords();
-    var r = list[idx];
+    var r = recordsCache[idx];
     if (!r) return;
 
     document.getElementById('in-customer').value = r.customer === '-' ? '' : r.customer;
@@ -672,21 +679,33 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function deleteRecord(idx) {
-    var list = loadRecords();
-    list.splice(idx, 1);
-    saveRecordsList(list);
+  async function deleteRecord(idx) {
+    var r = recordsCache[idx];
+    if (!r) return;
+    try {
+      var res = await fetch('/api/records/' + r.id, { method: 'DELETE' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+    } catch (e) {
+      alert('删除失败：' + e.message);
+      return;
+    }
     renderRecords();
   }
 
-  function clearAllRecords() {
+  async function clearAllRecords() {
     if (!confirm('确定要清空全部历史记录吗？此操作无法撤销。')) return;
-    saveRecordsList([]);
+    try {
+      var res = await fetch('/api/records', { method: 'DELETE' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+    } catch (e) {
+      alert('清空失败：' + e.message);
+      return;
+    }
     renderRecords();
   }
 
-  function renderRecords() {
-    var list = loadRecords();
+  async function renderRecords() {
+    var list = await fetchRecords();
     var wrap = document.getElementById('records-table-wrap');
     if (list.length === 0) {
       wrap.innerHTML = '<div class="no-records">暂无记录</div>';

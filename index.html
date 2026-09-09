@@ -19,6 +19,19 @@
   }
 
   h1 { font-size: 18px; font-weight: 700; color: #2A2A2A; }
+
+  .top-nav { width: 100%; max-width: 960px; display: flex; justify-content: space-between; align-items: center; }
+  .top-nav-titles h1 { text-align: left; margin: 0; }
+  .top-nav-titles .sub-hint { text-align: left; margin: 4px 0 0; max-width: none; }
+  .tab-group { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #D8D8D5; border-radius: 999px; padding: 4px; flex-shrink: 0; }
+  .tab-btn {
+    border: none; background: transparent; border-radius: 999px; padding: 9px 18px;
+    font-size: 13px; font-weight: 600; color: #4A4A4A; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  }
+  .tab-btn.active { background: #16181A; color: #fff; }
+  .tab-badge { background: #EFEFEC; color: #6A6A6A; border-radius: 999px; padding: 1px 7px; font-size: 11px; }
+  .tab-btn.active .tab-badge { background: rgba(255,255,255,0.25); color: #fff; }
+
   h2.section-h { font-size: 14px; font-weight: 700; color: #2A2A2A; grid-column: 1/-1; margin-bottom: -6px; }
   .sub-hint {
     font-size: 13px; color: #7A7A7A; text-align: center; max-width: 560px; line-height: 1.6; margin-top: -18px;
@@ -205,12 +218,22 @@
 </head>
 <body>
 
-  <h1>WEIDE 电子保修卡生成工具</h1>
-  <p class="sub-hint">填写顾客资料、上传车辆照片（自动去背景），过期日期自动计算。<b>推荐用「打印/存为PDF」导出</b>（浏览器原生功能，最稳定，不依赖网络加载任何组件）；「导出图片」按钮作为备用方案。</p>
+  <div class="top-nav">
+    <div class="top-nav-titles">
+      <h1>WEIDE 电子保修卡生成工具</h1>
+      <p class="sub-hint">填写顾客资料、上传车辆照片（自动去背景），过期日期自动计算。</p>
+    </div>
+    <div class="tab-group">
+      <button class="tab-btn active" id="tab-btn-create" onclick="showTab('create')">开卡</button>
+      <button class="tab-btn" id="tab-btn-records" onclick="showTab('records')">记录 <span class="tab-badge" id="tab-records-count">0</span></button>
+    </div>
+  </div>
+
   <div id="load-warning" style="display:none; background:#FFF4E5; border:1px solid #F0C275; color:#8A5A00; font-size:13px; padding:12px 18px; border-radius:10px; max-width:560px; text-align:center; line-height:1.6;">
     ⚠️ 导出功能所需的组件未能加载成功（可能是网络限制）。你仍然可以正常填写资料预览卡片，只是"导出图片"按钮可能无效——这种情况下请直接对卡片区域手动截图保存即可。
   </div>
 
+  <div id="tab-create">
   <div class="cards-row">
     <div class="col">
       <div class="section-label">正面 · Front</div>
@@ -396,8 +419,9 @@
       <button class="btn-export" onclick="exportCard('back-card','back')">导出背面图片</button>
     </div>
   </div>
+  </div>
 
-  <div class="records-panel">
+  <div class="records-panel" id="tab-records" style="display:none;">
     <h2>历史记录 Records</h2>
     <div class="records-hint">记录仅保存在当前浏览器本地（localStorage），不会同步到云端或其他设备/浏览器；清除浏览器数据会导致记录消失。点"编辑/重新导出"会把该条资料重新载入上方表单，你可以修改后再次导出图片或打印/存PDF。</div>
     <div id="records-table-wrap"></div>
@@ -758,6 +782,7 @@
     var list = loadRecords();
     var r = list[idx];
     if (!r) return;
+    showTab('create');
 
     document.getElementById('in-customer').value = r.customer === '-' ? '' : r.customer;
     updateField('customer', document.getElementById('in-customer').value);
@@ -798,8 +823,28 @@
     renderRecords();
   }
 
+  function showTab(name) {
+    var createEl = document.getElementById('tab-create');
+    var recordsEl = document.getElementById('tab-records');
+    var btnCreate = document.getElementById('tab-btn-create');
+    var btnRecords = document.getElementById('tab-btn-records');
+    if (name === 'records') {
+      createEl.style.display = 'none';
+      recordsEl.style.display = 'block';
+      btnCreate.classList.remove('active');
+      btnRecords.classList.add('active');
+    } else {
+      createEl.style.display = 'block';
+      recordsEl.style.display = 'none';
+      btnCreate.classList.add('active');
+      btnRecords.classList.remove('active');
+    }
+  }
+
   function renderRecords() {
     var list = loadRecords();
+    var countEl = document.getElementById('tab-records-count');
+    if (countEl) countEl.textContent = list.length;
     var wrap = document.getElementById('records-table-wrap');
     if (list.length === 0) {
       wrap.innerHTML = '<div class="no-records">暂无记录</div>';

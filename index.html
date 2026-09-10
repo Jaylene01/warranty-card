@@ -413,6 +413,18 @@
 05 本卡最终解释权归 WEIDE LUXURY 所有，条款如有更新恕不另行通知。</textarea>
     </div>
 
+    <h2 class="section-h">内部记录</h2>
+    <div class="records-hint">只存在记录里，方便日后查询，不会印在卡上。</div>
+
+    <div class="form-group full">
+      <label>单号</label>
+      <input type="text" id="in-invoice" placeholder="INV-0001">
+    </div>
+    <div class="form-group full">
+      <label>备注</label>
+      <textarea id="in-note" placeholder="安装项目、卡钳型号、来令片规格…" style="min-height:70px;"></textarea>
+    </div>
+
     <div class="export-row">
       <button class="btn-secondary" onclick="saveRecord()">保存本笔记录</button>
       <button class="btn-export" onclick="exportCard('front-card','front')">导出正面图片</button>
@@ -770,7 +782,9 @@
       warranty: document.getElementById('f-warranty').textContent,
       warrantyMonths: document.querySelector('input[name="warranty"]:checked').value,
       status: document.getElementById('status-text').textContent,
-      statusValue: document.querySelector('input[name="status"]:checked').value
+      statusValue: document.querySelector('input[name="status"]:checked').value,
+      invoiceNo: document.getElementById('in-invoice').value || '-',
+      note: document.getElementById('in-note').value || ''
     };
     var list = loadRecords();
     list.unshift(record);
@@ -795,6 +809,9 @@
     updateField('mileage', mileageDigits);
 
     document.getElementById('in-activation').value = r.activationRaw || '';
+
+    document.getElementById('in-invoice').value = (r.invoiceNo && r.invoiceNo !== '-') ? r.invoiceNo : '';
+    document.getElementById('in-note').value = r.note || '';
 
     if (r.warrantyMonths) {
       var radio = document.querySelector('input[name="warranty"][value="' + r.warrantyMonths + '"]');
@@ -851,10 +868,10 @@
       return;
     }
     var html = '<table class="records-table"><thead><tr>' +
-      '<th>保存时间</th><th>顾客</th><th>Vehicle No.</th><th>生效日期</th><th>过期日期</th><th>保修期限</th><th>状态</th><th></th>' +
+      '<th>保存时间</th><th>单号</th><th>顾客</th><th>Vehicle No.</th><th>生效日期</th><th>过期日期</th><th>保修期限</th><th>状态</th><th></th>' +
       '</tr></thead><tbody>';
     list.forEach(function(r, idx) {
-      html += '<tr><td>' + r.ts + '</td><td>' + r.customer + '</td><td>' + r.vehicle + '</td><td>' +
+      html += '<tr><td>' + r.ts + '</td><td>' + (r.invoiceNo || '-') + '</td><td>' + r.customer + '</td><td>' + r.vehicle + '</td><td>' +
         r.activation + '</td><td>' + r.expiry + '</td><td>' + r.warranty + '</td><td>' + r.status +
         '</td><td><span class="record-del" style="color:#2A6BC2;" onclick="loadRecordIntoForm(' + idx + ')">编辑/重新导出</span> &middot; ' +
         '<span class="record-del" onclick="deleteRecord(' + idx + ')">删除</span></td></tr>';
